@@ -31,20 +31,18 @@ let platforms;
 
 new Phaser.Game(config);
 
-function preload() {
+function preload() { 
+    // Cargar entorno
     this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
     this.load.image('cloud2', 'assets/scenery/overworld/cloud2.png');
     this.load.image('floorbricks', 'assets/scenery/overworld/floorbricks.png');
     this.load.image('pipe1.png', 'assets/scenery/pipe1.png');
-    this.load.image('horizontal-tube.png', 'assets/scenery/horizontal-tube.png');
+    this.load.image('castle', 'assets/scenery/castle.png');
 
-    // Cargar las imágenes del personaje
+    // Cargar personaje
     this.load.image('pj2.2-base', 'assets/entities/pj2.2-base.png');
     this.load.image('pj2.2-walk1', 'assets/entities/pj2.2-walk1.png');
     this.load.image('pj2.2-crouch', 'assets/entities/pj2.2-crouch.png');
-
-    // Cargar la foto del castillo
-    this.load.image('castle', 'assets/scenery/castle.png');
 
     // Cargar enemigos
     this.load.image('enemigo1', 'assets/entities/box1.1-right1.png');
@@ -73,6 +71,11 @@ function create() {
         const cloudType = index % 2 === 0 ? 'cloud1' : 'cloud2'; // Alternar entre cloud1 y cloud2
         this.add.image(cloud.x, cloud.y, cloudType).setOrigin(0, 0).setScale(cloud.scale); // Añadir nube
     });
+
+    // Colocar el castillo en una posición específica
+    this.add.image(config.width * 2.245, config.height - 300, 'castle') // Multiplicamos config.width por un factor
+        .setOrigin(2, 0.71)
+        .setScale(3);
 
     // Crear grupo de plataformas con físicas
     platforms = this.physics.add.staticGroup();
@@ -116,13 +119,33 @@ function create() {
         pipeObject.refreshBody();
     });
 
-    // Crear el enemigo
+    // Crear el primer enemigo
     this.enemigo1 = this.physics.add.sprite(300, config.height - 232, 'enemigo1')
         .setOrigin(-3, 1)
         .setScale(1)
         .setCollideWorldBounds(true)
         .setVelocityX(100)
         .setGravityY(500);
+
+    // Crear el segundo enemigo en la plataforma flotante
+    this.enemigo2 = this.physics.add.sprite(config.width / 2, config.height / 2 - 35, 'enemigo1')
+        .setOrigin(0.5, 1)
+        .setScale(1)
+        .setCollideWorldBounds(true) // No necesita límites globales, estará limitado a la plataforma
+        .setVelocityX(100); // Velocidad inicial
+
+    // Crear la caja flotante
+    this.enemigo3 = this.physics.add.sprite(config.width / 2, config.height / 2 - 35, 'enemigo1')
+        .setOrigin(-0.5, -5)
+        .setScale(1)
+        .setCollideWorldBounds(false)
+        .setGravityY(0); // Desactivar la gravedad para que flote sin caerse
+
+    // Ajustar la flotación para que suba y baje
+    this.enemigo3.floatingDirection = 1; // 1 para subir, -1 para bajar
+    this.enemigo3.floatSpeed = 100; // Velocidad de flotación
+
+    this.physics.add.collider(this.enemigo2, platforms); // Colisiones del enemigo con la plataforma flotante
 
     // Colisión entre el enemigo y las tuberías
     this.physics.add.collider(this.enemigo1, pipeGroup, () => {
@@ -146,10 +169,37 @@ function create() {
 
     // Habilitar colisiones entre el personaje y las plataformas
     this.physics.add.collider(player, platforms);
-    this.physics.add.collider(this.enemigo1, platforms);
-    this.physics.add.collider(player, pipeGroup); // Colisiones con las tuberías
+    this.physics.add.collider(player, pipeGroup);
 
-    this.enemigo1.setCollideWorldBounds(true);
+    // this.enemigo1.setCollideWorldBounds(true);
+    // this.physics.add.collider(this.enemigo1, platforms);
+
+    // Añadimos que se elimine el enemigo 1 al saltar sobre él
+    this.physics.add.overlap(player, this.enemigo1, (player, enemigo) => {
+        if (player.body.touching.down && enemigo.body.touching.up) {
+            // Desactivar el cuerpo físico del enemigo antes de destruirlo
+            enemigo.disableBody(true, true);
+
+            // Aplicar un ligero rebote al jugador al eliminar al enemigo
+            player.setVelocityY(-300);
+        }
+    });
+
+    // Añadimos que se elimine el enemigo 2 al saltar sobre él
+    this.physics.add.overlap(player, this.enemigo2, (player, enemigo) => {
+        if (player.body.touching.down && enemigo.body.touching.up) {
+            enemigo.disableBody(true, true);
+            player.setVelocityY(-300);
+        }
+    });
+
+     // Añadimos que se elimine el enemigo 3 al saltar sobre él
+    this.physics.add.overlap(player, this.enemigo3, (player, enemigo) => {
+        if (player.body.touching.down && enemigo.body.touching.up) {
+            enemigo.disableBody(true, true);
+            player.setVelocityY(-300);
+        }
+    });
 
     // Configurar teclas
     cursors = this.input.keyboard.addKeys({
@@ -182,24 +232,37 @@ function create() {
         frameRate: 10
     });
 
+    // Configurar animación para enemigos
     this.anims.create({
-        key:'enemigo1-walk',
-        frames:[
-            {key:'enemigo1'},
-            {key:'enemigo1-2'},
+        key: 'enemigo1-walk',
+        frames: [
+            { key: 'enemigo1' },
+            { key: 'enemigo1-2' },
         ],
-        frameRate:5,
-        repeat: -1
-    })
+        frameRate: 10, // Velocidad de la animación
+        repeat: -1 // Repetir indefinidamente
+    });
 
-    this.enemigo1.play('enemigo1-walk')
+    // Asignar la animación a ambos enemigos
+    this.enemigo1.play('enemigo1-walk');
+    this.enemigo2.play('enemigo1-walk');
+    this.enemigo3.play('enemigo1-walk');
 
     this.physics.add.collider(this.enemigo1, platforms);
+    this.physics.add.overlap(player, [this.enemigo1, this.enemigo2, this.enemigo3], resetPlayerPosition, null, this); // Colisión entre el jugador y enemigo
 
     this.cameras.main.startFollow(player, true, 0.1, 0.1); // La cámara sigue al jugador con suavizado
     this.cameras.main.setBounds(0, 0, config.width * 10, config.height / 1.18); // Limitar la cámara al área ampliada
+
 }
 
+// Función para reiniciar la posición del jugador
+function resetPlayerPosition(player) {
+    // Coordenadas iniciales del jugador
+    const startX = 300;
+    const startY = config.height - 300;
+    player.setPosition(startX, startY);
+}
 
 function update() {
     const speed = 200; // Velocidad horizontal
@@ -234,19 +297,40 @@ function update() {
         player.setVelocityY(jumpSpeed); // Saltar
     }
 
+    // Movimiento del enemigo 1
     if (this.enemigo1.x >= 675 && !this.enemigo1.flipX) {
         this.enemigo1.setVelocityX(-100); // Cambiar dirección a la izquierda
-        this.enemigo1.flipX = true; // Invertir la imagen para que se mueva en dirección contraria
+        this.enemigo1.flipX = true; // Invertir la imagen
     } else if (this.enemigo1.x <= 100 && this.enemigo1.flipX) {
         this.enemigo1.setVelocityX(100); // Cambiar dirección a la derecha
         this.enemigo1.flipX = false; // Restaurar la imagen
-    } else {
-        // Si el enemigo está entre los dos límites, mantiene la dirección correcta
-        // No es necesario invertir flipX ni cambiar la dirección constantemente
-        if (!this.enemigo1.flipX) {
-            this.enemigo1.setVelocityX(100); // Mover a la derecha
-        } else {
-            this.enemigo1.setVelocityX(-100); // Mover a la izquierda
-        }
     }
+
+    // Movimiento del enemigo 2
+    if (this.enemigo2.x >= 1105 && !this.enemigo2.flipX) {
+        this.enemigo2.setVelocityX(-100); // Cambiar dirección a la izquierda
+        this.enemigo2.flipX = true; // Invertir la imagen
+    } else if (this.enemigo2.x <= 810 && this.enemigo2.flipX) {
+        this.enemigo2.setVelocityX(100); // Cambiar dirección a la derecha
+        this.enemigo2.flipX = false; // Restaurar la imagen
+    }
+
+    // Movimiento de la caja flotante
+    // Establecemos nuevos límites para evitar que se salga del mapa
+    const minY = config.height / 2 - 285; // Límite superior de la flotación
+    const maxY = config.height / 2.1; // Límite inferior de la flotación
+
+    if (this.enemigo3.y <= minY) {
+        this.enemigo3.floatingDirection = 1;  // Comienza a subir
+    } else if (this.enemigo3.y >= maxY) {
+        this.enemigo3.floatingDirection = -1; // Comienza a bajar
+    }
+
+    if (this.enemigo3.y > maxY) {
+        this.enemigo3.setY(maxY); // Ajustar la posición Y para que no sobrepase el límite inferior
+    } else if (this.enemigo3.y < minY) {
+        this.enemigo3.setY(minY); // Ajustar la posición Y para que no sobrepase el límite superior
+    }
+
+    this.enemigo3.setVelocityY(this.enemigo3.floatSpeed * this.enemigo3.floatingDirection); // Hacer que la caja suba y baje
 }
