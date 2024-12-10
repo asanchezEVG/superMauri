@@ -11,7 +11,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 500 }, // Gravedad global
-            debug: true // Cambiar a false para desactivar la depuración
+            debug: false // Cambiar a false para desactivar la depuración
         }
     },
     scene: {
