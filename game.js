@@ -32,6 +32,7 @@ let lives = 1;
 let score = 0;
 let livesText;
 let scoreText;
+let mensajeActual = null;
 
 new Phaser.Game(config);
 
@@ -207,7 +208,8 @@ function create() {
 
         // Crear y configurar la moneda
         const coin = this.physics.add.sprite(randomX, randomY, 'camiseta')
-            .setScale(0.3); // Escalar el sprite visualmente
+            .setScale(0.3);
+
         this.coins.add(coin); // Añadir al grupo
 
         // Ajustar la hitbox de la moneda
@@ -238,10 +240,25 @@ function create() {
     this.physics.add.collider(player, pipeGroup);
     this.physics.add.collider(player, tiendasGroup);
 
-    // Crear NPC
-    this.add.image(config.width - 500, config.height - 226, 'npc1')
+    // Crear el NPC como un sprite con físicas
+    npc = this.physics.add.sprite(config.width - 500, config.height - 226, 'npc1')
         .setOrigin(0.5, 1)
         .setScale(1.5);
+
+    // Hacer que el NPC sea inmóvil
+    npc.body.setImmovable(true);
+    npc.body.allowGravity = false;
+
+    // Crear el segundo NPC al lado del primero
+    const npc2 = this.physics.add.sprite(config.width / 0.670, config.height - 300, 'npc1')
+        .setOrigin(0.5, 1)
+        .setScale(1.5);
+
+    npc2.body.setImmovable(true);
+    npc2.body.allowGravity = false;
+
+    this.physics.add.overlap(player, npc, mostrarMensaje, null, this);
+    this.physics.add.overlap(player, npc2, mostrarMensaje2, null, this);
 
     // Crear el primer enemigo
     this.enemigo1 = this.physics.add.sprite(300, config.height - 232, 'enemigo1')
@@ -362,8 +379,6 @@ function create() {
             player.setVelocityY(-300);
         }
     });
-
-    this.physics.add.overlap(player, npc, showNPCModal, null, this);
     
     cursors = this.input.keyboard.addKeys({
         up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -450,11 +465,16 @@ function hitEnemy(player, enemigo) {
 }
 
 function perderVida() {
-    lives--; // Reducir una vida
-    livesText.setText('Vidas: ' + lives); // Actualizar el texto de vidas
+    if (lives <= 0) {
+        showGameOver.call(this);
+        return;
+    }
+
+    lives--;
+    livesText.setText('Vidas: ' + lives);
 
     if (lives <= 0) {
-        showGameOver.call(this, player);
+        showGameOver.call(this);
     } else {
         resetPlayerPosition(player);
     }
@@ -538,61 +558,86 @@ function showVictoryMessage(player) {
     this.physics.world.isPaused = true;
 }
 
-// function showModal(player) {
-//     this.physics.pause(); // Pausar el juego
-//     player.setVelocity(0); // Detener al jugador
+function mostrarMensaje(player, npc) {
+    if (mensajeActual) {
+        mensajeActual.destroy();
+        bubble.destroy(); // Eliminar también el bocadillo anterior
+    }
 
-//     const centerX = this.cameras.main.scrollX + this.cameras.main.width / 2;
-//     const centerY = this.cameras.main.scrollY + this.cameras.main.height / 2;
+    const texto = 
+        'Fabricar un par de vaqueros\n' +
+        'supone un gasto similar\n' +
+        'al consumo de agua de un\n' +
+        'adulto durante ocho años.';
 
-//     // Crear el texto del mensaje
-//     const modalText = this.add.text(centerX, centerY - 100, 'Cada año se utilizan millones de litros', {
-//         fontSize: '48px', // Ajusté el tamaño de la fuente para que sea más legible
-//         fill: '#00FF00',
-//         fontFamily: 'Arial',
-//         stroke: '#000000',
-//         strokeThickness: 8
-//     }).setOrigin(0.5);
+    bubble = this.add.graphics();
+    bubble.fillStyle(0x000000, 0.6);  // Fondo negro más transparente (menos opaco)
+    bubble.fillRoundedRect(player.x - 170, player.y - 115, 340, 130, 25); // Ajustar tamaño y radio
 
-//     // Crear el botón "Seguir jugando"
-//     const continueButton = this.add.text(centerX, centerY + 100, 'Seguir jugando', {
-//         fontSize: '40px',
-//         fill: '#FFFFFF',
-//         fontFamily: 'Arial',
-//         stroke: '#000000',
-//         strokeThickness: 6,
-//         padding: { x: 20, y: 10 },
-//     }).setOrigin(0.5).setInteractive();
+    mensajeActual = this.add.text(
+        player.x, 
+        player.y - 50, 
+        texto, 
+        {
+            fontSize: '24px',
+            fill: '#FFF',
+            fontFamily: 'Arial',
+            align: 'center', // Centrar el texto en cada línea
+        }
+    ).setOrigin(0.5);
 
-//     // Cambiar estilo del botón cuando el cursor pasa por encima
-//     continueButton.on('pointerover', () => {
-//         continueButton.setStyle({
-//             fill: '#FFFF00', // Cambiar el color a amarillo
-//             stroke: '#FFD700', // Cambiar el borde a dorado
-//         });
-//     });
+    this.time.delayedCall(1500, () => {
+        if (mensajeActual) {
+            mensajeActual.destroy();
+            bubble.destroy(); // Eliminar también el bocadillo
+            mensajeActual = null;
+        }
+    });
+}
 
-//     continueButton.on('pointerout', () => {
-//         continueButton.setStyle({
-//             fill: '#FFFFFF', // Vuelve al color blanco
-//             stroke: '#000000', // Vuelve al borde negro
-//         });
-//     });
+function mostrarMensaje2(player, npc) {
+    // Eliminar el mensaje existente si ya hay uno
+    if (mensajeActual) {
+        mensajeActual.destroy();
+        bubble.destroy(); // Eliminar también el bocadillo anterior
+    }
 
-//     // Acción al hacer clic en "Seguir jugando"
-//     continueButton.on('pointerdown', () => {
-//         this.physics.world.resume(); // Reanudar la física
-//         player.setVelocity(100, 0); // Reiniciar el movimiento del jugador (puedes ajustar la velocidad)
-        
-//         // Eliminar el modal (mensaje y botón)
-//         modalText.setVisible(false);
-//         continueButton.setVisible(false);
-//     });
-// }
+    const texto = 
+    'Producir una camiseta requiere\n' +
+    'el mismo volumen de agua que\n' +
+    'bebería un ser humano durante\n' +
+    'tres años.';
+
+    // Crear el fondo del bocadillo con bordes redondeados
+    bubble = this.add.graphics();
+    bubble.fillStyle(0x000000, 0.6);  // Fondo negro semitransparente
+    bubble.fillRoundedRect(player.x - 180, player.y - 120, 360, 140, 25); // Ajustar tamaño para hacerlo un poco más pequeño
+
+    // Crear el texto del mensaje sobre el bocadillo
+    mensajeActual = this.add.text(
+        player.x, 
+        player.y - 50, 
+        texto, 
+        {
+            fontSize: '24px',
+            fill: '#FFF',
+            fontFamily: 'Arial',
+            align: 'center', // Centrar el texto en cada línea
+        }
+    ).setOrigin(0.5); // Centrar el texto
+
+    // Hacer que el mensaje desaparezca después de 1.5 segundos
+    this.time.delayedCall(1500, () => {
+        if (mensajeActual) {
+            mensajeActual.destroy();
+            bubble.destroy(); // Eliminar también el bocadillo
+            mensajeActual = null;
+        }
+    });
+}
 
 // Función para reiniciar la posición del jugador
 function resetPlayerPosition(player) {
-    // Coordenadas iniciales del jugador
     const startX = 300;
     const startY = config.height - 300;
     player.setPosition(startX, startY);
@@ -606,23 +651,6 @@ function showNPCModal(player, npc) {
         modal.style.display = 'none';
     }, 3000);  // El modal se cierra después de 3 segundos
 }
-
-// function playerDie() {
-//     // Desactivar controles y detener movimientos
-//     this.physics.pause(); // Pausar físicas
-//     player.setVelocity(0); // Detener cualquier movimiento
-
-//     // Reproducir animación de muerte
-//     player.anims.play('death', true);
-
-//     // Simular salto de muerte
-//     player.setVelocityY(-300); // Salto hacia arriba
-//     player.setGravityY(800); // Aumentar la gravedad para acelerar la caída
-
-//     this.time.delayedCall(500, () => {
-//         showGameOver.call(this, player); // Mostrar Game Over después de la animación
-//     });
-// }
 
 function update() {
     const speed = 200; // Velocidad horizontal
@@ -653,10 +681,6 @@ function update() {
     if (cursors.up.isDown && player.body.touching.down) {
         player.setVelocityY(jumpSpeed); // Saltar
     }
-
-    if (player.y > config.height) { // Si el personaje cae fuera de la pantalla
-        playerDie.call(this);
-    }    
 
     if (this.enemigo1.x >= 675 && !this.enemigo1.flipX) {
         this.enemigo1.setVelocityX(-100); // Cambiar dirección a la izquierda
@@ -747,8 +771,7 @@ function update() {
         showVictoryMessage.call(this, player, null);
     }
 
-    // // Mostrar mensaje de victoria si el jugador pasa la coordenada X 1900
-    // if (player.x > 1880) {
-    //     showModal.call(this, player, null);
-    // }
+    if (player.y > config.height) {
+        perderVida.call(this); // Reutilizar la misma función para cuando muere
+    }
 }
